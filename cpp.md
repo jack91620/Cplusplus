@@ -1,6 +1,6 @@
-#cpp
+# cpp
 
-# 类的声明
+## 类的声明
 
 这是complex类的声明
 ```c++
@@ -226,3 +226,188 @@ complex c2;
 c2.function(c1);
 ```
 
+## 操作符重载
+
+```c++
+{
+    complex c1(2,1);
+    complex c2(5);
+
+    c1 += c2;
+}
+```
+
+对于编译器来说，看到对c1的+=操作，看c1这个类有没有对+=的操作符重载函数
+
+
+### 成员函数
+```c++
+class complex
+{
+public:
+    complex(double r = 0, double i = 0)
+        : re (r), im (i)
+    {}
+    complex& operator += (const complex&);
+    double real () const {return re;}
+    double image () const {return im;}
+private:
+    double re, im;
+    friend complex& __doapl (complex*, const complex&);
+};
+```
+对于成员函数，自带参数this，是reference，指向调用者，相当于这样
+```c++
+inline complex& complex::operator += (this, const complex& r)
+{
+    return __doapl (this, r);
+}
+```
+这是真实的实现
+complex::operator += 表明+=是complex类的成员函数
+__doapl是全局函数
+```c++
+inline complex& complex::operator += (const complex& r)
+{
+    return __doapl (this, r);
+}
+
+inline complex& __doapl (complex* ths, const complex& r)
+{
+    // ths是指针
+    ths->re += r.re;
+    ths->im += r.im;
+    return *ths;
+    // 返回的是值，函数声明需要返回reference
+}
+```
+pointer和reference的区别：
+调用函数的调用者无需知道被调用者是否以reference接受参数
+无论函数的参数设计成值或者reference，调用者都可以传值
+函数的返回也不用知道函数是否以reference返回，都可以直接返回值
+
+对于
+```c++
+{
+    complex c1(2,1);
+    complex c2(5);
+
+    c1 += c2;
+}
+```
+这样的用法，complex::operator也没必要返回complex&，因为是对this做操作，但是如果有下面的用法
+```c++
+{
+    complex c1(2,1);
+    complex c2(5);
+    complex c3(4);
+
+    c1 += c2 += c3;
+}
+```
+### 非成员函数
+
+```c++
+class complex
+{
+public:
+    complex(double r = 0, double i = 0)
+        : re (r), im (i)
+    {}
+    complex& operator += (const complex&);
+    double real () const {return re;}
+    double image () const {return im;}
+private:
+    double re, im;
+    friend complex& __doapl (complex*, const complex&);
+};
+
+inline complex& __doapl (complex* ths, const complex& r)
+{
+    // ths是指针
+    ths->re += r.re;
+    ths->im += r.im;
+    return *ths;
+    // 返回的是值，函数声明需要返回reference
+}
+
+inline complex& complex::operator += (const complex& r)
+{
+    return __doapl (this, r);
+}
+
+inline double imag(const complex& x)
+{
+    return x.imag();
+}
+
+inline double real(const complex& x)
+{
+    return x.real();
+}
+// 复数加法的操作符重载
+inline complex operator + (const complex& x, const complex& y)
+{
+    return complex(real(x) + real(y), imag(x) + imag(y));
+}
+
+inline complex operator + (const complex& x, double y)
+{
+    return complex(real(x) + y, imag(x));
+}
+
+inline complex operator + (double x, const complex& y)
+{
+    return complex(x, + real(y), imag(y));
+}
+
+inline complex operator + (const complex& x)
+{
+    return x;
+}
+// 这里其实可以返回reference
+
+inline complex operator - (const complex& x)
+{
+    return complex(-real(x), -imag(x));
+}
+// 这里一定不能返回reference，因为肯定是个值
+
+inline bool operator == (const complex& x, const complex& y)
+{
+    return real(x) == real(y) && imag(x) == imag(y);
+}
+
+inline bool operator == (const complex& x, double y)
+{
+    return real(x) == y && imag(x) == 0;
+}
+
+inline bool operator == (double x, const complex& y)
+{
+    return x == real(y) && imag(y) == 0;
+}
+```
+
+这里操作符+的重载是定义在非成员函数中的，对应下面三种用法
+```c++
+{
+    complex c1(2, 1);
+    complex c2;
+    c2 = c1 + c2;
+    c2 = c1 + 5;
+    c2 = 7 + c1;
+}
+```
+
+加法返回的一定是值，不是引用
+
+## 临时对象
+```c++
+inline complex operator + (double x, const complex& y)
+{
+    return complex(x, + real(y), imag(y));
+}
+```
+这里面，complex(x, + real(y), imag(y));
+typename();的形式，是临时对象
